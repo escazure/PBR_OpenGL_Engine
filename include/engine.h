@@ -13,6 +13,8 @@
 #include <memory>
 #include <functional>
 
+#define PBRENGINE_INITIAL_LIGHT_CAPACITY 16
+
 class Engine {
 private: 
 	GLFWwindow* _window = nullptr;
@@ -21,10 +23,22 @@ private:
 	std::unordered_map<std::string, std::unique_ptr<Camera>> _cameras;
 	std::unordered_map<std::string, std::unique_ptr<Texture>> _textures;
 	std::vector<Light> _lights;
+	Camera* _activeCamera = nullptr;
 
 	std::function<void()> _renderCallback;
 
 	GLuint _lightUBO = 0;
+	unsigned int _lightBufferCapacity = 0;
+	unsigned int _maximumLightBufferCapacity = 0;
+	bool _lightsDirty = true;
+
+	float _deltaTime = 0.0f;
+
+	void _initializeLightBuffer();
+	void _resizeLightBuffer(unsigned int capacity);
+	void _uploadLightData();
+
+	void _updateDeltaTime();
 
 public:
 	bool init();
@@ -45,6 +59,8 @@ public:
 	void addCamera(const std::string& cameraName, Args&&... args){
 		_cameras[cameraName] = std::make_unique<Camera>(std::forward<Args>(args)...);
 	}
+	void setActiveCamera(const std::string& cameraName);
+	Camera* getActiveCamera();
 
 	template<typename... Args>
 	void addTexture(const std::string& textureName, Args&&... args){
@@ -52,6 +68,8 @@ public:
 	}
 
 	void addLight(const Light& light);
+	void removeLight(unsigned int index);
+	void updateLight(unsigned int index, const Light& light);
 
 	Model* getModel(const std::string& modelName);
 	Shader* getShader(const std::string& shaderName);
@@ -59,6 +77,8 @@ public:
 	Camera* getCamera(const std::string& cameraName);
 
 	float getAspectRatio();
+	float getDeltaTime();
+	float getTime();
 
 	// To be removed 
 	void prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLevels);

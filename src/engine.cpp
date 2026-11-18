@@ -36,9 +36,11 @@ bool Engine::init(){
 		glDebugMessageCallback(openGLDebugCallback, nullptr);
 	#endif
 
-	glCreateBuffers(1, &_lightUBO);
-	glNamedBufferStorage(_lightUBO, sizeof(Light) * 16, nullptr, GL_DYNAMIC_STORAGE_BIT);
-	glBindBufferRange(GL_UNIFORM_BUFFER, 1, _lightUBO, 0, sizeof(Light) * 16);
+	GLint maxUBOSize = 0;
+	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &maxUBOSize);
+	_maximumLightBufferCapacity = maxUBOSize / sizeof(Light);
+
+	_initializeLightBuffer();
 
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
@@ -56,31 +58,25 @@ void Engine::run(){
 	const float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	const float clearDepth = 1.0f;
 
-	float lastFrame = 0.0f;
 	while(!glfwWindowShouldClose(_window)){	
-		// Extract into separate function //
-		float currentFrame = static_cast<float>(glfwGetTime());
-		float deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
+		_updateDeltaTime();
 
 		// Update input state and poll events //
 		Input::updateState();
 		glfwPollEvents();
 
-		// Extract into separate function //
-		if(!_lights.empty()) glNamedBufferSubData(_lightUBO, 0, sizeof(Light) * _lights.size(), _lights.data());
-		
-		// For now camera is updated on engine side explicitly //
-		_cameras["MainCamera"]->update(deltaTime);
+		// Upload light data only if something changed //
+		if(_lightsDirty) _uploadLightData();
 
-		// User should be able to set clear color and clear depth values //
+		// For now only active camera is updated //
+		if(_activeCamera) _activeCamera->update(_deltaTime);
+
+		// Clear color and depth buffers //
 		glClearNamedFramebufferfv(0, GL_COLOR, 0, clearColor);
 		glClearNamedFramebufferfv(0, GL_DEPTH, 0, &clearDepth);
 
 		// Invoke user callback if exists //
-		if(_renderCallback){
-			_renderCallback();
-		}
+		if(_renderCallback) _renderCallback();
 
 		// Swap buffers //
 		glfwSwapBuffers(_window);
@@ -98,32 +94,36 @@ void Engine::setRenderCallback(std::function<void()> renderCallback){
 }
 
 Model* Engine::getModel(const std::string& modelName){
-	if(_models.find(modelName) != _models.end())
-		return _models[modelName].get();
+	auto it = _models.find(modelName);
+	if(it != _models.end())
+		return it->second.get();
 
 	Logger::Warning("Engine::getModel", "Model not found: " + modelName);
 	return nullptr;
 }
 
 Shader* Engine::getShader(const std::string& shaderName){
-	if(_shaders.find(shaderName) != _shaders.end())
-		return _shaders[shaderName].get();
+	auto it = _shaders.find(shaderName);
+	if(it != _shaders.end())
+		return it->second.get();
 
 	Logger::Warning("Engine::getShader", "Shader not found: " + shaderName);
 	return nullptr;
 }
 
 Texture* Engine::getTexture(const std::string& textureName){
-	if(_textures.find(textureName) != _textures.end())
-		return _textures[textureName].get();
+	auto it = _textures.find(textureName);
+	if(it != _textures.end())
+		return it->second.get();
 
 	Logger::Warning("Engine::getTexture", "Texture not found: " + textureName);
 	return nullptr;
 }
 
 Camera* Engine::getCamera(const std::string& cameraName){
-	if(_cameras.find(cameraName) != _cameras.end())
-		return _cameras[cameraName].get();
+	auto it = _cameras.find(cameraName);
+	if(it != _cameras.end())
+		return it->second.get();
 
 	Logger::Warning("Engine::getCamera", "Camera not found: " + cameraName);
 	return nullptr;
@@ -239,6 +239,17 @@ void Engine::loadTextures(const std::string& textureName, const std::vector<std:
 
 void Engine::addLight(const Light& light){
 	_lights.push_back(light);
+	_lightsDirty = true;
+}
+
+void Engine::updateLight(unsigned int index, const Light& light){
+	_lights[index] = light;
+	_lightsDirty = true;
+}
+
+void Engine::removeLight(unsigned int index){
+	_lights.erase(_lights.begin() + index);
+	_lightsDirty = true;
 }
 
 float Engine::getAspectRatio(){
@@ -296,6 +307,57 @@ void Engine::prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLev
 	}
 
 	glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+}
+
+void Engine::setActiveCamera(const std::string& cameraName){
+	auto camera = _cameras.find(cameraName);
+	if(camera != _cameras.end()){
+		_activeCamera = camera->second.get();
+		return;
+	}
+	Logger::Error("Engine::setActiveCamera", "Camera with name: " + cameraName + " doesn't exist.");
+}
+
+Camera* Engine::getActiveCamera(){
+	return _activeCamera;
+}
+
+void Engine::_initializeLightBuffer(){
+	glCreateBuffers(1, &_lightUBO);
+	_lightBufferCapacity = PBRENGINE_INITIAL_LIGHT_CAPACITY;
+	glNamedBufferData(_lightUBO, sizeof(Light) * _lightBufferCapacity, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_UNIFORM_BUFFER, 1, _lightUBO);
+}
+
+void Engine::_resizeLightBuffer(unsigned int capacity){
+	if(capacity <= _lightBufferCapacity) return;
+	if(capacity >= _maximumLightBufferCapacity) Logger::Warning("Engine::_resizeLightBuffer", "Can't increase light buffer size, hit maximum amount of lights."); return;
+	_lightBufferCapacity = capacity;
+	glNamedBufferData(_lightUBO, sizeof(Light) * _lightBufferCapacity, nullptr, GL_DYNAMIC_DRAW);
+	glBindBufferBase(GL_UNIFORM_BUFFER, 1, _lightUBO);
+}
+
+void Engine::_uploadLightData(){
+	if(_lights.empty()) return;
+	if(_lights.size() >= _lightBufferCapacity) _resizeLightBuffer(_lights.size());
+	glNamedBufferSubData(_lightUBO, 0, sizeof(Light) * _lights.size(), _lights.data());
+}
+
+void Engine::_updateDeltaTime(){
+	static float lastFrame = 0;
+	static float currentFrame = 0;
+
+	currentFrame = getTime();
+	_deltaTime = currentFrame - lastFrame;
+	lastFrame = currentFrame;
+}
+
+float Engine::getDeltaTime(){
+	return _deltaTime;
+}
+
+float Engine::getTime(){
+	return static_cast<float>(glfwGetTime());
 }
 
 std::string getDebugSource(GLenum source){
