@@ -27,6 +27,8 @@ private:
 				_pixelFormat = GL_RGB; break;
 			case GL_RGBA32F: case GL_RGBA16F: case GL_RGBA8: case GL_SRGB8_ALPHA8:
 				_pixelFormat = GL_RGBA; break;
+			default:
+				_pixelFormat = GL_RGBA; break;
 		}
 	}
 
@@ -111,10 +113,35 @@ public:
 		return *this;
 	}
 
+	GLuint getID() const { return _id; }
+	GLuint getTarget() const { return _target; }
+	GLuint getInternalFormat() const { return _internalFormat; }
+	GLuint getPixelFormat() const { return _pixelFormat; }
+
+	unsigned int getMipMapLevels() const { return _mipMapLevels; }
+	unsigned int getWidth() const { return _width; }
+	unsigned int getHeight() const { return _height; }
+	unsigned int getDepth() const { return _depth; }
+	unsigned int getChannelNumber() const {
+		switch(_pixelFormat){
+			case GL_DEPTH_COMPONENT:
+			case GL_RED:
+				return 1;
+			case GL_RG:
+				return 2;
+			case GL_RGB:
+				return 3;
+			case GL_RGBA:
+				return 4;
+		}
+		return 0;
+	}
+
 	void setWrap(GLuint wrapS, GLuint wrapT, GLuint wrapR = GL_REPEAT){
 		glTextureParameteri(_id, GL_TEXTURE_WRAP_S, wrapS);	
-		glTextureParameteri(_id, GL_TEXTURE_WRAP_T, wrapT);	
-		if(_target == GL_TEXTURE_3D || _target == GL_TEXTURE_CUBE_MAP || _target == GL_TEXTURE_2D_ARRAY)
+		if(_target == GL_TEXTURE_2D || _target == GL_TEXTURE_1D_ARRAY || _target == GL_TEXTURE_RECTANGLE)
+			glTextureParameteri(_id, GL_TEXTURE_WRAP_T, wrapT);	
+		if(_target == GL_TEXTURE_3D || _target == GL_TEXTURE_2D_ARRAY || _target == GL_TEXTURE_CUBE_MAP || _target == GL_TEXTURE_CUBE_MAP_ARRAY)
 			glTextureParameteri(_id, GL_TEXTURE_WRAP_R, wrapR);
 	}
 
@@ -155,22 +182,6 @@ public:
 		glCreateTextures(_target, 1, &_id);
 		_specifyTextureStorage();
 		_specifyPixelFormat();
-	}
-
-	unsigned int getChannelNumber(){
-		switch(_pixelFormat){
-			case GL_DEPTH_COMPONENT:
-			case GL_RED:
-				return 1;
-			case GL_RG:
-				return 2;
-			case GL_RGB:
-				return 3;
-			case GL_RGBA:
-				return 4;
-			default:
-				return 0;
-		}
 	}
 
 	void loadPixelsSingle(unsigned int width, unsigned int height, const void* data, unsigned int level = 0, unsigned int xoffset = 0, unsigned int yoffset = 0){
