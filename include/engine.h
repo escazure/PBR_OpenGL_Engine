@@ -63,3 +63,5 @@ public:
 	// To be removed 
 	void prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLevels);
 };
+
+void openGLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);

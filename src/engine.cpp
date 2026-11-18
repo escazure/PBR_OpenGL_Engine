@@ -2,6 +2,7 @@
 #include "input.h"
 #include "utils.h"
 #include "stb_image.h"
+#include <string>
 
 bool Engine::init(){
 	Logger::Log("Engine::init", "Started Initialization");
@@ -27,6 +28,13 @@ bool Engine::init(){
 		Logger::Error("GL3W::gl3wInit", "Failed to init");
 		return false;
 	}
+
+	#ifdef ENABLE_OPENGL_DEBUG
+		Logger::Log("Engine::init", "GL_DEBUG_OUTPUT is enabled.");
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		glDebugMessageCallback(openGLDebugCallback, nullptr);
+	#endif
 
 	glCreateBuffers(1, &_lightUBO);
 	glNamedBufferStorage(_lightUBO, sizeof(Light) * 16, nullptr, GL_DYNAMIC_STORAGE_BIT);
@@ -181,7 +189,7 @@ void Engine::loadTexture(const std::string& textureName, const std::string& text
 
 	stbi_image_free(data);
 	_textures[textureName] = std::move(texture);
-	Logger::Success("Engine::loadTexture", "Loaded " + std::string(isHDR ? " HDR " : " ") + "texture image from path: " + texturePath);
+	Logger::Success("Engine::loadTexture", "Loaded" + std::string(isHDR ? " HDR " : " ") + "texture image from path: " + texturePath);
 }
 
 // Update this //
@@ -288,4 +296,48 @@ void Engine::prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLev
 	}
 
 	glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+}
+
+std::string getDebugSource(GLenum source){
+	switch(source){
+		case GL_DEBUG_SOURCE_API: return "API";
+		case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW_SYSTEM";
+		case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER_COMPILER";
+		case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD_PARTY";
+		case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
+		case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+	}
+	return "UNKNOWN";
+}
+
+std::string getDebugType(GLenum type){
+	switch(type){
+		case GL_DEBUG_TYPE_ERROR: return "ERROR";
+		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
+		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
+		case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
+		case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
+		case GL_DEBUG_TYPE_MARKER: return "MARKER";
+		case GL_DEBUG_TYPE_PUSH_GROUP: return "PUSH_GROUP";
+		case GL_DEBUG_TYPE_POP_GROUP: return "POP_GROUP";
+		case GL_DEBUG_TYPE_OTHER: return "OTHER";
+	}
+	return "UNKNOWN";
+}
+
+void openGLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam){
+	std::string logSource = "OPENGL_DEBUG_CALLBACK:" + getDebugSource(source);
+	std::string logMessage = "[" + getDebugType(type) + "], ID[" + std::to_string(id) + "]: " + std::string(message);
+	switch(severity){
+		case GL_DEBUG_SEVERITY_HIGH:
+			Logger::Error(logSource, logMessage);
+			break;
+		case GL_DEBUG_SEVERITY_MEDIUM:
+		case GL_DEBUG_SEVERITY_LOW:
+			Logger::Warning(logSource, logMessage);
+			break;
+		default:
+			Logger::Log(logSource, logMessage);
+			break;
+	}
 }
