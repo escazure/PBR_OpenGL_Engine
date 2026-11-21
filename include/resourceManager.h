@@ -19,6 +19,8 @@ private:
 	static std::unordered_map<std::string, std::unique_ptr<Camera>> _cameras;
 	static std::unordered_map<std::string, std::unique_ptr<Texture>> _textures;
 
+	static bool _measureLoadingTime;
+
 public:
 	static Model* LoadModel(const std::string& modelName, const std::string& objPath, const std::string& mtlPath = "");
 	static Model* GetModel(const std::string& modelName);
@@ -65,5 +67,8 @@ public:
 	static void RemoveCamera(const std::string& cameraName);
 
 	static void Clear();
+
+	static void SetMeasureLoadingTime(bool measureTime);
+	static bool IsMeasureLoadingTime();
 };
 

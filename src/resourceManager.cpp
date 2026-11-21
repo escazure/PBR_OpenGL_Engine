@@ -9,21 +9,27 @@
 #include "camera.h"
 #include "texture.h"
 #include "logger.h"
+#include "utils.h"
 
 std::unordered_map<std::string, std::unique_ptr<Model>> ResourceManager::_models;
 std::unordered_map<std::string, std::unique_ptr<Shader>> ResourceManager::_shaders;
 std::unordered_map<std::string, std::unique_ptr<Camera>> ResourceManager::_cameras;
 std::unordered_map<std::string, std::unique_ptr<Texture>> ResourceManager::_textures;
 
+bool ResourceManager::_measureLoadingTime;
+
 Model* ResourceManager::LoadModel(const std::string& modelName, const std::string& objPath, const std::string& mtlPath){
+	Utils::Timer timer;
 	auto it = _models.find(modelName);
 	if(it != _models.end()) return it->second.get();
 
+	if(_measureLoadingTime) timer.Start();
 	auto model = std::make_unique<Model>(objPath, mtlPath);
 	Model* ptr = model.get();
 	_models.emplace(modelName, std::move(model));
+	if(_measureLoadingTime) timer.Stop();
 
-	Logger::Success("ResourceManager::LoadModel", "Loaded model '" + modelName + "'.");
+	Logger::Success("ResourceManager::LoadModel", "Loaded model '" + modelName + "'" + (_measureLoadingTime ? " in " + std::to_string(timer.GetElapsed()) + "ms" : "") + ".");
 	return ptr;
 }
 
@@ -46,26 +52,32 @@ void ResourceManager::UnloadModel(const std::string& modelName){
 }
 
 Shader* ResourceManager::LoadShader(const std::string& shaderName, const std::string& computeShaderPath){
+	Utils::Timer timer;
 	auto it = _shaders.find(shaderName);
 	if(it != _shaders.end()) return it->second.get();
 
+	if(_measureLoadingTime) timer.Start();
 	auto shader = std::make_unique<Shader>(computeShaderPath);
 	Shader* ptr = shader.get();
 	_shaders.emplace(shaderName, std::move(shader));
+	if(_measureLoadingTime) timer.Stop();
 
-	Logger::Success("ResourceManager::LoadShader", "Loaded compute shader '" + shaderName + "'.");
+	Logger::Success("ResourceManager::LoadShader", "Loaded compute shader '" + shaderName + "'" + (_measureLoadingTime ? " in " + std::to_string(timer.GetElapsed()) + "ms" : "") + ".");
 	return ptr;
 }
 
 Shader* ResourceManager::LoadShader(const std::string& shaderName, const std::string& vertexShaderPath, const std::string& fragmentShaderPath){
+	Utils::Timer timer;
 	auto it = _shaders.find(shaderName);
 	if(it != _shaders.end()) return it->second.get();
 
+	if(_measureLoadingTime) timer.Start();
 	auto shader = std::make_unique<Shader>(vertexShaderPath, fragmentShaderPath);
 	Shader* ptr = shader.get();
 	_shaders.emplace(shaderName, std::move(shader));
+	if(_measureLoadingTime) timer.Stop();
 
-	Logger::Success("ResourceManager::LoadShader", "Loaded shader '" + shaderName + "'.");
+	Logger::Success("ResourceManager::LoadShader", "Loaded shader '" + shaderName + "'" + (_measureLoadingTime ? " in " + std::to_string(timer.GetElapsed()) + "ms" : "") + ".");
 	return ptr;
 }
 
@@ -88,6 +100,7 @@ void ResourceManager::UnloadShader(const std::string& shaderName){
 }
 
 Texture* ResourceManager::LoadTexture(const std::string& textureName, const std::string& texturePath, bool flipVertically){
+	Utils::Timer timer;
 	auto it = _textures.find(textureName);
 	if(it != _textures.end()) return it->second.get();
 	
@@ -103,6 +116,7 @@ Texture* ResourceManager::LoadTexture(const std::string& textureName, const std:
 
 	stbi_set_flip_vertically_on_load(flipVertically);
 
+	if(_measureLoadingTime) timer.Start();
 	void* data = isHDR ? static_cast<void*>(stbi_loadf(texturePath.c_str(), &width, &height, &channels, 0)) :
 						 static_cast<void*>(stbi_load(texturePath.c_str(), &width, &height, &channels, 0));
 
@@ -136,12 +150,14 @@ Texture* ResourceManager::LoadTexture(const std::string& textureName, const std:
 
 	Texture* ptr = texture.get();
 	_textures.emplace(textureName, std::move(texture));
+	if(_measureLoadingTime) timer.Stop();
 
-	Logger::Success("ResourceManager::LoadTexture", "Loaded " + std::string(isHDR ? "HDR" : "") + "texture '" + textureName + "'.");
+	Logger::Success("ResourceManager::LoadTexture", "Loaded " + std::string(isHDR ? "HDR" : "") + "texture '" + textureName + "'" + (_measureLoadingTime ? " in " + std::to_string(timer.GetElapsed()) + "ms" : "") + ".");
 	return ptr;
 }
 
 Texture* ResourceManager::LoadTexture(const std::string& textureName, const std::vector<std::string>& texturePaths, bool flipVertically){
+	Utils::Timer timer;
 	auto it = _textures.find(textureName);
 	if(it != _textures.end()) return it->second.get();
 
@@ -170,6 +186,7 @@ Texture* ResourceManager::LoadTexture(const std::string& textureName, const std:
 
 	stbi_set_flip_vertically_on_load(flipVertically);
 
+	if(_measureLoadingTime) timer.Start();
 	GLuint internalFormat;
 	for(std::size_t i = 0; i < texturePaths.size(); i++){
 		int w, h, c;
@@ -221,8 +238,9 @@ Texture* ResourceManager::LoadTexture(const std::string& textureName, const std:
 	
 	Texture* ptr = texture.get();
 	_textures.emplace(textureName, std::move(texture));
+	if(_measureLoadingTime) timer.Stop();
 
-	Logger::Success("ResourceManager::LoadTexture", "Loaded " + std::string(isHDR ? "HDR" : "") + "texture '" + textureName + "'.");
+	Logger::Success("ResourceManager::LoadTexture", "Loaded " + std::string(isHDR ? "HDR" : "") + "texture '" + textureName + "'" + (_measureLoadingTime ? " in " + std::to_string(timer.GetElapsed()) + "ms" : "") + ".");
 	return ptr;
 }
 
@@ -269,4 +287,12 @@ void ResourceManager::Clear(){
 	_textures.clear();
 
 	Logger::Info("ResourceManager::Clear", "All resources cleared.");
+}
+
+void ResourceManager::SetMeasureLoadingTime(bool measureTime){
+	_measureLoadingTime = measureTime;
+}
+
+bool ResourceManager::IsMeasureLoadingTime(){
+	return _measureLoadingTime;
 }
