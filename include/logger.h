@@ -10,7 +10,7 @@ namespace Logger {
 		std::print("\033[22;33m[{}]: {}\033[0m\n", source, message);
 	}
 
-	inline void Log(const std::string& source, const std::string& message){
+	inline void Info(const std::string& source, const std::string& message){
 		std::print("\033[22;37m[{}]: {}\033[0m\n", source, message);
 	}
 

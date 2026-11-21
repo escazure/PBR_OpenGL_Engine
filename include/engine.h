@@ -3,6 +3,7 @@
 #include "gl3w.h"
 #include <glfw/glfw3.h>
 
+#include "resourceManager.h"
 #include "model.h"
 #include "shader.h"
 #include "camera.h"
@@ -18,10 +19,6 @@
 class Engine {
 private: 
 	GLFWwindow* _window = nullptr;
-	std::unordered_map<std::string, std::unique_ptr<Model>> _models;
-	std::unordered_map<std::string, std::unique_ptr<Shader>> _shaders;
-	std::unordered_map<std::string, std::unique_ptr<Camera>> _cameras;
-	std::unordered_map<std::string, std::unique_ptr<Texture>> _textures;
 	std::vector<Light> _lights;
 	Camera* _activeCamera = nullptr;
 
@@ -47,39 +44,14 @@ public:
 
 	void setRenderCallback(std::function<void()> renderCallback);
 	
-	void loadModel(const std::string& modelName, const std::string& objPath, const std::string& mtlPath = "");
-	void loadShader(const std::string& shaderName, const std::string& vertexPath, const std::string& fragmentPath);
-	void loadShader(const std::string& shaderName, const std::string& computePath);
-	void loadTexture(const std::string& textureName, const std::string& texturePath);
-	void loadTextures(const std::string& textureName, const std::vector<std::string>& texturePaths);
+	void processTextures(Shader* shader, const std::vector<Texture*>& inputTextures, const std::vector<Texture*>& outputTextures, unsigned int textureWidth, unsigned int textureHeight, unsigned int textureDepth);
 
-	void processTextures(const std::string& computeShaderName, const std::vector<std::string>& inputTextures, const std::vector<std::string>& outputTextures, unsigned int textureWidth, unsigned int textureHeight, unsigned int textureDepth);
-
-	template<typename... Args>
-	void addCamera(const std::string& cameraName, Args&&... args){
-		_cameras[cameraName] = std::make_unique<Camera>(std::forward<Args>(args)...);
-	}
-	void setActiveCamera(const std::string& cameraName);
+	void setActiveCamera(Camera* camera);
 	Camera* getActiveCamera();
-
-	template<typename... Args>
-	void addTexture(const std::string& textureName, Args&&... args){
-		_textures[textureName] = std::make_unique<Texture>(std::forward<Args>(args)...);
-	}
 
 	void addLight(const Light& light);
 	void removeLight(unsigned int index);
 	void updateLight(unsigned int index, const Light& light);
-
-	void removeModel(const std::string& modelName);
-	void removeShader(const std::string& shaderName);
-	void removeTexture(const std::string& textureName);
-	void removeCamera(const std::string& cameraName);
-
-	Model* getModel(const std::string& modelName);
-	Shader* getShader(const std::string& shaderName);
-	Texture* getTexture(const std::string& textureName);
-	Camera* getCamera(const std::string& cameraName);
 
 	float getAspectRatio();
 	float getDeltaTime();

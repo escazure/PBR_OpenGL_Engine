@@ -1,11 +1,11 @@
 #include "engine.h"
 #include "input.h"
 #include "utils.h"
-#include "stb_image.h"
+
 #include <string>
 
 bool Engine::init(){
-	Logger::Log("Engine::init", "Started Initialization");
+	Logger::Info("Engine::init", "Started Initialization");
 
 	// Window and Context initialization //
 	glfwInit();
@@ -30,7 +30,7 @@ bool Engine::init(){
 	}
 
 	#ifdef ENABLE_OPENGL_DEBUG
-		Logger::Log("Engine::init", "GL_DEBUG_OUTPUT is enabled.");
+		Logger::Info("Engine::init", "GL_DEBUG_OUTPUT is enabled.");
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 		glDebugMessageCallback(openGLDebugCallback, nullptr);
@@ -49,7 +49,7 @@ bool Engine::init(){
 }
 
 void Engine::run(){
-	Logger::Log("Engine::run", "Started render loop");
+	Logger::Info("Engine::run", "Started render loop");
 	// Do something with those //
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
@@ -84,157 +84,14 @@ void Engine::run(){
 }
 
 void Engine::shutdown(){
-	Logger::Log("Engine::shutdown", "Shutting down");
+	Logger::Info("Engine::shutdown", "Shutting down");
+	ResourceManager::Clear();
 	glfwDestroyWindow(_window);
 	glfwTerminate();
 }
 
 void Engine::setRenderCallback(std::function<void()> renderCallback){
 	_renderCallback = std::move(renderCallback);
-}
-
-Model* Engine::getModel(const std::string& modelName){
-	auto it = _models.find(modelName);
-	if(it != _models.end())
-		return it->second.get();
-
-	Logger::Warning("Engine::getModel", "Model not found: " + modelName);
-	return nullptr;
-}
-
-Shader* Engine::getShader(const std::string& shaderName){
-	auto it = _shaders.find(shaderName);
-	if(it != _shaders.end())
-		return it->second.get();
-
-	Logger::Warning("Engine::getShader", "Shader not found: " + shaderName);
-	return nullptr;
-}
-
-Texture* Engine::getTexture(const std::string& textureName){
-	auto it = _textures.find(textureName);
-	if(it != _textures.end())
-		return it->second.get();
-
-	Logger::Warning("Engine::getTexture", "Texture not found: " + textureName);
-	return nullptr;
-}
-
-Camera* Engine::getCamera(const std::string& cameraName){
-	auto it = _cameras.find(cameraName);
-	if(it != _cameras.end())
-		return it->second.get();
-
-	Logger::Warning("Engine::getCamera", "Camera not found: " + cameraName);
-	return nullptr;
-}
-
-void Engine::loadModel(const std::string& modelName, const std::string& objPath, const std::string& mtlPath){
-	_models[modelName] = std::make_unique<Model>(objPath, mtlPath);
-	Logger::Success("Engine::loadModel", "Loaded model from path: " + objPath);
-}
-
-void Engine::loadShader(const std::string& shaderName, const std::string& vertexPath, const std::string& fragmentPath){
-	_shaders[shaderName] = std::make_unique<Shader>(shaderName, vertexPath, fragmentPath);	
-	Logger::Success("Engine::loadShader", "Loaded vertex/fragment shaders from paths: " + vertexPath + " | " + fragmentPath);
-}
-
-void Engine::loadShader(const std::string& shaderName, const std::string& computePath){
-	_shaders[shaderName] = std::make_unique<Shader>(shaderName, computePath);	
-	Logger::Success("Engine::loadShader", "Loaded compute shader from path: " + computePath);
-}
-
-// Rename and remake loading functions for different types of textures //
-void Engine::loadTexture(const std::string& textureName, const std::string& texturePath){
-	std::size_t pointIdx = texturePath.find_last_of(".");
-	if(pointIdx == std::string::npos){
-		Logger::Error("Engine::loadTexture", "Texture name doesn't contain file format: " + texturePath);
-		return;
-	}
-	std::string fileFormat = Utils::toLower(texturePath.substr(pointIdx + 1));
-	bool isHDR = (fileFormat == "hdr" || fileFormat == "exr");
-
-	int width, height, channels;
-	GLuint internalFormat;
-
-	stbi_set_flip_vertically_on_load(true);
-
-	void* data = isHDR ? static_cast<void*>(stbi_loadf(texturePath.c_str(), &width, &height, &channels, 0)) :
-						 static_cast<void*>(stbi_load(texturePath.c_str(), &width, &height, &channels, 0));
-
-	if(!data){
-		const char* failureReason = stbi_failure_reason();
-    	std::string errorDetails = failureReason ? failureReason : "Unknown error";
-
-		Logger::Error("Engine::loadTexture", "Failed to load " + std::string(isHDR ? " HDR " : "") + " texture image from path: " + texturePath + " | Reason: " + errorDetails);
-		return;
-	}
-
-	switch(channels){
-		case 1: internalFormat = isHDR ? GL_R16F : GL_R8; break;
-		case 2: internalFormat = isHDR ? GL_RG16F : GL_RG8; break;
-		case 3: internalFormat = isHDR ? GL_RGB16F : GL_RGB8; break;
-		case 4: internalFormat = isHDR ? GL_RGBA16F : GL_RGBA8; break;
-		default: internalFormat = isHDR ? GL_RGB16F : GL_RGB8;
-	}
-
-	auto texture = std::make_unique<Texture>(GL_TEXTURE_2D, internalFormat, 1, width, height);
-	texture->loadPixelsSingle(width, height, data);
-	if(isHDR)
-		texture->setWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-	else
-		texture->setWrap(GL_REPEAT, GL_REPEAT);
-
-	texture->setFilter(GL_LINEAR, GL_LINEAR);
-
-	stbi_image_free(data);
-	_textures[textureName] = std::move(texture);
-	Logger::Success("Engine::loadTexture", "Loaded" + std::string(isHDR ? " HDR " : " ") + "texture image from path: " + texturePath);
-}
-
-// Update this //
-void Engine::loadTextures(const std::string& textureName, const std::vector<std::string>& texturePaths){
-	Logger::Log("Engine::loadTextures", "Loading texture images from paths: " + texturePaths[0] + ", ... ");
-	int width, height, channels;
-	std::vector<unsigned char*> rawFaces(texturePaths.size(), nullptr);
-
-	stbi_set_flip_vertically_on_load(true);
-
-	GLuint internalFormat;
-
-	for(int i = 0; i < texturePaths.size(); i++){
-		int w, h, c;
-		rawFaces[i] = stbi_load(texturePaths[i].c_str(), &w, &h, &c, 0);
-		if(!rawFaces[i]){
-			Logger::Error("Engine::loadTextures", "Failed to load texture image from path: " + texturePaths[i]);
-			for(int j = 0; j <= i; j++) if(rawFaces[j]) stbi_image_free(rawFaces[j]);
-			return;
-		}
-
-		if(i == 0){
-			width = w;
-			height = h;
-			channels = c;
-		}
-	}
-	
-	switch(channels){
-		case 1: internalFormat = GL_R8; break;
-		case 2: internalFormat = GL_RG8; break;
-		case 3: internalFormat = GL_RGB8; break;
-		case 4: internalFormat = GL_RGBA8; break;
-	}
-
-	auto texture = std::make_unique<Texture>(GL_TEXTURE_CUBE_MAP, internalFormat, 1, width, height);
-	std::vector<const void*> faceDataSources(rawFaces.begin(), rawFaces.end());
-	texture->loadPixelsMultiple(faceDataSources, width, height);
-	texture->setWrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-	texture->setFilter(GL_LINEAR, GL_LINEAR);
-
-	for(auto ptr: rawFaces) if(ptr) stbi_image_free(ptr);
-
-	_textures[textureName] = std::move(texture);
-	Logger::Success("Engine::loadTextures", "Done");
 }
 
 void Engine::addLight(const Light& light){
@@ -252,25 +109,6 @@ void Engine::removeLight(unsigned int index){
 	_lightsDirty = true;
 }
 
-void Engine::removeModel(const std::string& modelName){
-	_models.erase(modelName);
-}
-
-void Engine::removeShader(const std::string& shaderName){
-	_shaders.erase(shaderName);
-}
-
-void Engine::removeTexture(const std::string& textureName){
-	_textures.erase(textureName);
-}
-
-void Engine::removeCamera(const std::string& cameraName){
-	auto it = _cameras.find(cameraName);
-	if(it == _cameras.end()) return;
-	if(_activeCamera == it->second.get()) _activeCamera = nullptr;
-	_cameras.erase(it);
-}
-
 float Engine::getAspectRatio(){
 	int width, height;
 	glfwGetFramebufferSize(_window, &width, &height);
@@ -278,28 +116,23 @@ float Engine::getAspectRatio(){
 	return static_cast<float>(width)/static_cast<float>(height);
 }
 
-void Engine::processTextures(const std::string& computeShaderName, const std::vector<std::string>& inputTextures, const std::vector<std::string>& outputTextures, unsigned int textureWidth, unsigned int textureHeight, unsigned int textureDepth){
-	if(_shaders.find(computeShaderName) == _shaders.end()){
-		Logger::Error("Engine::processTextures", "Compute shader not found: " + computeShaderName);
-		return;
-	}
-
+void Engine::processTextures(Shader* shader, const std::vector<Texture*>& inputTextures, const std::vector<Texture*>& outputTextures, unsigned int textureWidth, unsigned int textureHeight, unsigned int textureDepth){
 	for(const auto& inTexture : inputTextures){
 		for(const auto& outTexture : outputTextures){
 			if(inTexture == outTexture){
-				Logger::Error("Engine::processTextures", "Texture '" + inTexture + "' can't be bound as both input and output");
+				Logger::Error("Engine::processTextures", "Textures can't be bound as both input and output");
 				return;
 			}
 		}
 	}
 
-	_shaders[computeShaderName]->use();
+	shader->use();
 
 	for(std::size_t i = 0; i < inputTextures.size(); i++)
-		_textures[inputTextures[i]]->bind(i);
+		inputTextures[i]->bind(i);
 
 	for(std::size_t i = 0; i < outputTextures.size(); i++)
-		_textures[outputTextures[i]]->bindAsImage(i);
+		outputTextures[i]->bindAsImage(i);
 
 	unsigned int numGroupX = (textureWidth + 15) / 16;
 	unsigned int numGroupY = (textureHeight + 15) / 16;
@@ -311,14 +144,15 @@ void Engine::processTextures(const std::string& computeShaderName, const std::ve
 
 // Figure out how to remove this later 
 void Engine::prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLevels){
-	_shaders["prefilterCubemap"]->use();
-	_textures["EnvironmentCubemap"]->bind(0);
+	Shader* shader = ResourceManager::GetShader("PrefilterCube");
+	shader->use();
+	ResourceManager::GetTexture("EnvironmentCubemap")->bind(0);
 	
 	for(unsigned int mip = 0; mip < maxMipLevels; mip++){
 		unsigned int mipResolution = baseResolution >> mip;
 		float roughness = static_cast<float>(mip) / static_cast<float>(maxMipLevels - 1);
-		_shaders["prefilterCubemap"]->setFloat("uRoughness", roughness);
-		_textures["PrefilterEnvCubemap"]->bindAsImage(0, mip);
+		shader->setFloat("uRoughness", roughness);
+		ResourceManager::GetTexture("PrefilterEnvCubemap")->bindAsImage(0, mip);
 		
 		unsigned int numGroupX = (mipResolution + 15) / 16;
 		unsigned int numGroupY = (mipResolution + 15) / 16;
@@ -328,13 +162,8 @@ void Engine::prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLev
 	glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 
-void Engine::setActiveCamera(const std::string& cameraName){
-	auto camera = _cameras.find(cameraName);
-	if(camera != _cameras.end()){
-		_activeCamera = camera->second.get();
-		return;
-	}
-	Logger::Error("Engine::setActiveCamera", "Camera with name: " + cameraName + " doesn't exist.");
+void Engine::setActiveCamera(Camera* camera){
+	_activeCamera = camera;
 }
 
 Camera* Engine::getActiveCamera(){
@@ -422,7 +251,7 @@ void openGLDebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity,
 			Logger::Warning(logSource, logMessage);
 			break;
 		default:
-			Logger::Log(logSource, logMessage);
+			Logger::Info(logSource, logMessage);
 			break;
 	}
 }

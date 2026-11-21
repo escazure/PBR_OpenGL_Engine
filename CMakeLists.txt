@@ -9,6 +9,7 @@ set(CPP_SRCS
 	src/engine.cpp
 	src/input.cpp
 	src/utils.cpp
+	src/resourceManager.cpp
 )
 
 set(TINY_OBJ_LOADER_SRC external/tinyobjloader/tiny_obj_loader.cpp)

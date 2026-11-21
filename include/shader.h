@@ -17,10 +17,7 @@ private:
 	GLuint id;
 
 public:
-	std::string name;
-
-	Shader(const std::string& shaderName, const std::string& computePath){
-		name = shaderName;
+	Shader(const std::string& computePath){
 		std::string computeCode;
 		std::ifstream shaderFile;
 
@@ -71,8 +68,7 @@ public:
 		glDeleteShader(shader);
 	}
 
-	Shader(const std::string& shaderName, const std::string& vertexPath, const std::string& fragmentPath){
-		name = shaderName;
+	Shader(const std::string& vertexPath, const std::string& fragmentPath){
 		std::string vertexCode;
 		std::string fragmentCode;
 		std::ifstream vertexFile;
