@@ -71,6 +71,11 @@ public:
 	void removeLight(unsigned int index);
 	void updateLight(unsigned int index, const Light& light);
 
+	void removeModel(const std::string& modelName);
+	void removeShader(const std::string& shaderName);
+	void removeTexture(const std::string& textureName);
+	void removeCamera(const std::string& cameraName);
+
 	Model* getModel(const std::string& modelName);
 	Shader* getShader(const std::string& shaderName);
 	Texture* getTexture(const std::string& textureName);
@@ -80,7 +85,7 @@ public:
 	float getDeltaTime();
 	float getTime();
 
-	// To be removed 
+	// Move to a submodule 
 	void prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLevels);
 };
 

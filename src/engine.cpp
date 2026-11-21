@@ -252,6 +252,25 @@ void Engine::removeLight(unsigned int index){
 	_lightsDirty = true;
 }
 
+void Engine::removeModel(const std::string& modelName){
+	_models.erase(modelName);
+}
+
+void Engine::removeShader(const std::string& shaderName){
+	_shaders.erase(shaderName);
+}
+
+void Engine::removeTexture(const std::string& textureName){
+	_textures.erase(textureName);
+}
+
+void Engine::removeCamera(const std::string& cameraName){
+	auto it = _cameras.find(cameraName);
+	if(it == _cameras.end()) return;
+	if(_activeCamera == it->second.get()) _activeCamera = nullptr;
+	_cameras.erase(it);
+}
+
 float Engine::getAspectRatio(){
 	int width, height;
 	glfwGetFramebufferSize(_window, &width, &height);
@@ -319,7 +338,11 @@ void Engine::setActiveCamera(const std::string& cameraName){
 }
 
 Camera* Engine::getActiveCamera(){
-	return _activeCamera;
+	if(_activeCamera)
+		return _activeCamera;
+
+	Logger::Warning("Engine::getActiveCamera", "Active camera not set.");
+	return nullptr;
 }
 
 void Engine::_initializeLightBuffer(){
