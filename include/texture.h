@@ -6,14 +6,14 @@
 
 class Texture {
 private:
-	GLuint _id;
-	GLuint _target;
-	GLuint _internalFormat;
-	GLuint _pixelFormat;
-	unsigned int _mipMapLevels;
-	unsigned int _width;
-	unsigned int _height;
-	unsigned int _depth;
+	GLuint _id = 0;
+	GLuint _target = 0;
+	GLuint _internalFormat = 0;
+	GLuint _pixelFormat = 0;
+	unsigned int _mipMapLevels = 0;
+	unsigned int _width = 0;
+	unsigned int _height = 0;
+	unsigned int _depth = 0;
 
 	void _specifyPixelFormat(){
 		switch(_internalFormat){

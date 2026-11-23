@@ -44,6 +44,21 @@ public:
 		_textures.emplace(textureName, std::move(texture));
 		return ptr;
 	}
+
+
+	static Texture* AddTexture(const std::string& textureName, std::unique_ptr<Texture> texture){
+    	auto it = _textures.find(textureName);
+    	if(it != _textures.end()){
+        	Logger::Warning("ResourceManager::AddTexture", "Trying to add already existing texture '" + textureName + "'.");
+        	return nullptr;
+    	}
+
+    	Texture* ptr = texture.get();
+    	_textures.emplace(textureName, std::move(texture));
+
+    	return ptr;
+	}
+	
 	static Texture* LoadTexture(const std::string& textureName, const std::string& texturePath, bool flipVertically = true);
 	static Texture* LoadTexture(const std::string& textureName, const std::vector<std::string>& texturePaths, bool flipVertically = true);
 	static Texture* GetTexture(const std::string& textureName);
@@ -71,4 +86,3 @@ public:
 	static void SetMeasureLoadingTime(bool measureTime);
 	static bool IsMeasureLoadingTime();
 };
-

@@ -1,6 +1,7 @@
 #include "engine.h"
 #include "input.h"
 #include "utils.h"
+#include "iblBaker.h"
 
 #include <string>
 
@@ -41,6 +42,8 @@ bool Engine::init(){
 	_maximumLightBufferCapacity = maxUBOSize / sizeof(Light);
 
 	_initializeLightBuffer();
+
+	IBLBaker::initialize();
 
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
@@ -85,6 +88,7 @@ void Engine::run(){
 
 void Engine::shutdown(){
 	Logger::Info("Engine::shutdown", "Shutting down");
+	IBLBaker::shutdown();
 	ResourceManager::Clear();
 	glfwDestroyWindow(_window);
 	glfwTerminate();
@@ -139,26 +143,6 @@ void Engine::processTextures(Shader* shader, const std::vector<Texture*>& inputT
 	unsigned int numGroupZ = textureDepth;
 
 	glDispatchCompute(numGroupX, numGroupY, numGroupZ);
-	glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-}
-
-// Figure out how to remove this later 
-void Engine::prefilterEnvMap(unsigned int baseResolution, unsigned int maxMipLevels){
-	Shader* shader = ResourceManager::GetShader("PrefilterCube");
-	shader->use();
-	ResourceManager::GetTexture("EnvironmentCubemap")->bind(0);
-	
-	for(unsigned int mip = 0; mip < maxMipLevels; mip++){
-		unsigned int mipResolution = baseResolution >> mip;
-		float roughness = static_cast<float>(mip) / static_cast<float>(maxMipLevels - 1);
-		shader->setFloat("uRoughness", roughness);
-		ResourceManager::GetTexture("PrefilterEnvCubemap")->bindAsImage(0, mip);
-		
-		unsigned int numGroupX = (mipResolution + 15) / 16;
-		unsigned int numGroupY = (mipResolution + 15) / 16;
-		glDispatchCompute(numGroupX, numGroupY, 6);
-	}
-
 	glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }
 

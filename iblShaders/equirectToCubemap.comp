@@ -1,0 +1,40 @@
+#version 460 core
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+layout (binding = 0) uniform sampler2D uEquirectangularMap;
+layout (rgba16f, binding = 0) uniform writeonly imageCube uOutputCubemap;
+
+vec3 getTexelCoords(vec2 uv, uint faceID){
+	vec2 st = uv * 2.0 - 1.0;
+	vec3 dir;
+
+	switch(faceID){
+		case 0: dir = vec3(1.0, -st.y, -st.x); break;
+		case 1: dir = vec3(-1.0, -st.y, st.x); break;
+		case 2: dir = vec3(st.x, 1.0, st.y); break;
+		case 3: dir = vec3(st.x, -1.0, -st.y); break;
+		case 4: dir = vec3(st.x, -st.y, 1.0); break;
+		case 5: dir = vec3(-st.x, -st.y, -1.0); break;
+	}
+	return normalize(dir);
+}
+
+vec2 sampleSphericalMap(vec3 v){
+	vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+	uv *= vec2(0.1591, 0.3183); // (1/(2PI), 1/PI)
+	uv += 0.5;
+	return uv;
+}
+
+void main(){
+	ivec3 texCoords = ivec3(gl_GlobalInvocationID.xyz);
+	ivec2 size = imageSize(uOutputCubemap);
+
+	if(texCoords.x >= size.x || texCoords.y >= size.y) return;
+	vec2 uv = (vec2(texCoords.xy) + 0.5) / vec2(size);
+	vec3 dir = getTexelCoords(uv, texCoords.z);
+
+	vec2 sphereUV = sampleSphericalMap(dir);
+	vec3 color = texture(uEquirectangularMap, sphereUV).rgb;
+
+	imageStore(uOutputCubemap, texCoords, vec4(color, 1.0));
+}

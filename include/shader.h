@@ -14,9 +14,12 @@
 
 class Shader {
 private:
-	GLuint id;
+	GLuint id = 0;
 
 public:
+	Shader(const Shader&) = delete;
+	Shader& operator=(const Shader&) = delete;
+	
 	Shader(const std::string& computePath){
 		std::string computeCode;
 		std::ifstream shaderFile;
@@ -61,6 +64,8 @@ public:
 		if(!success){
 			glGetProgramInfoLog(id, 512, NULL, infoLog);
 			Logger::Error("Shader", std::string("Shader program linking failed: ") + std::string(infoLog));
+			glDeleteProgram(id);
+			id = 0;
 			glDeleteShader(shader);
 			return;
 		}
@@ -136,6 +141,8 @@ public:
 		if(!success){
 			glGetProgramInfoLog(id, 512, NULL, infoLog);
 			Logger::Error("Shader", std::string("Shader program linking failed: ") + std::string(infoLog));
+			glDeleteProgram(id);
+			id = 0;
 			glDeleteShader(vertex);
 			glDeleteShader(fragment);
 			return;
@@ -143,6 +150,13 @@ public:
 
 		glDeleteShader(vertex);
 		glDeleteShader(fragment);
+	}
+
+	~Shader(){
+		if(id != 0){
+			glDeleteProgram(id);
+			id = 0;
+		}
 	}
 
 	void use(){

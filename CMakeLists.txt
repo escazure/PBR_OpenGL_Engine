@@ -10,6 +10,7 @@ set(CPP_SRCS
 	src/input.cpp
 	src/utils.cpp
 	src/resourceManager.cpp
+	src/iblBaker.cpp
 )
 
 set(TINY_OBJ_LOADER_SRC external/tinyobjloader/tiny_obj_loader.cpp)
@@ -52,6 +53,12 @@ target_compile_features(Engine PUBLIC cxx_std_23)
 target_compile_options(Engine PUBLIC -Wno-pragmas)
 target_compile_definitions(Engine PUBLIC 
 	$<$<CONFIG:Debug>:ENABLE_OPENGL_DEBUG>
+	ASSET_DIR="${CMAKE_BINARY_DIR}/"
+)
+
+file(COPY
+	"${CMAKE_CURRENT_SOURCE_DIR}/iblShaders"
+	DESTINATION "${CMAKE_BINARY_DIR}/iblShaders"
 )
 
 if(UNIX AND NOT APPLE)
