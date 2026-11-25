@@ -180,8 +180,8 @@ void Engine::_uploadLightData(){
 }
 
 void Engine::_updateDeltaTime(){
-	static float lastFrame = 0;
-	static float currentFrame = 0;
+	static float lastFrame = 0.0f;
+	static float currentFrame = 0.0f;
 
 	currentFrame = getTime();
 	_deltaTime = currentFrame - lastFrame;
